@@ -227,7 +227,7 @@ private fun EmployeeTable(
                         ) {
                             Text(employee.codigo, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                             Text("${employee.nombres} ${employee.apellidos}", Modifier.weight(2.2f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(employee.idagencia.toString(), Modifier.weight(0.8f), style = MaterialTheme.typography.bodyMedium)
+                            Text(employee.agencia_descripcion?.takeIf { it.isNotBlank() } ?: "#${employee.idagencia}", Modifier.weight(0.8f), style = MaterialTheme.typography.bodyMedium)
                             Text("Activo", Modifier.weight(0.7f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Row(Modifier.weight(1.8f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(onClick = { onMarkAttendance(employee) }, modifier = Modifier.height(38.dp)) {
@@ -281,7 +281,7 @@ private fun EmployeeListCard(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            "Código ${employee.codigo} · Sucursal ${employee.idagencia}",
+                            "Código ${employee.codigo} · Sucursal ${employee.agencia_descripcion?.takeIf { it.isNotBlank() } ?: "#${employee.idagencia}"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

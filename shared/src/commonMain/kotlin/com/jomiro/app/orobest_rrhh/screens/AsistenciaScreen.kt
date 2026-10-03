@@ -281,7 +281,7 @@ private fun AttendanceEmployeeTable(
                         ) {
                             Text(employee.codigo, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                             Text("${employee.nombres} ${employee.apellidos}", Modifier.weight(2.2f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(employee.idagencia.toString(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text(employee.agencia_descripcion?.takeIf { it.isNotBlank() } ?: "#${employee.idagencia}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                             Button(
                                 onClick = { onConsult(employee.idempleado) },
                                 enabled = !loading,

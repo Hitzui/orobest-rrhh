@@ -36,6 +36,7 @@ data class EmployeeDto(
     val apellidos: String,
     val estado: Int,
     val idagencia: Int,
+    val agencia_descripcion: String? = null,
 )
 
 @Serializable
