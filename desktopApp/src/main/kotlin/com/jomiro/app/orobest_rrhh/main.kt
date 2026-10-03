@@ -3,9 +3,11 @@ package com.jomiro.app.orobest_rrhh
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import javax.imageio.ImageIO
 
@@ -19,7 +21,11 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         title = "OroBest RRHH",
         icon = appIcon,
-        state = WindowState(WindowPlacement.Maximized, isMinimized = false),
+        state = WindowState(
+            WindowPlacement.Maximized,
+            isMinimized = false,
+            position = WindowPosition.Aligned(Alignment.Center)
+        ),
     ) {
         App()
     }
