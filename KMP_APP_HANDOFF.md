@@ -127,7 +127,7 @@ Tipos admitidos: `permiso_medico`, `permiso_personal`, `incapacidad` y `justific
 ## Decisiones técnicas recomendadas para KMP
 
 - Compartir en `commonMain`: modelos DTO, cliente HTTP, manejo de errores, repositorios y cola/sincronización de eventos.
-- La inyección de dependencias multiplataforma usa Koin 4.2.2 en `commonMain`. `App()` inicializa `KoinApplication` y `di/AppModule.kt` registra Settings, AttendanceOutbox y RrhhApiClientFactory; `AppNavigation` consume los servicios con `koinInject`.
+- La inyección de dependencias multiplataforma usa Koin 4.2.2 en `commonMain`. `App()` inicializa `KoinApplication` y `di/AppModule.kt` registra Settings, AttendanceOutbox, RrhhApiClientFactory y RrhhAppViewModel. `AppNavigation` obtiene el ViewModel con `koinViewModel()` y observa su `StateFlow`; login, empleados, asistencia y sincronización se coordinan desde el ViewModel.
 - Usar Ktor Client y Kotlinx Serialization salvo que el proyecto ya tenga una convención distinta.
 - No persistir el token en preferencias planas. Usar almacenamiento seguro nativo (Android Keystore/encrypted storage e iOS Keychain mediante una abstracción multiplataforma).
 - Separar URL de API por configuración de desarrollo/pruebas/producción. No desactivar validación TLS en producción.
