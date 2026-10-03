@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -201,15 +202,25 @@ fun AsistenciaScreen(
                 Text("No se encontraron empleados.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(visibleEmployees, key = { it.idempleado }) { employee ->
-                    EmployeeAttendanceCard(
-                        employee = employee,
-                        onClick = { if (!loading) onConsult(employee.idempleado) },
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                if (maxWidth >= 800.dp) {
+                    AttendanceEmployeeTable(
+                        employees = visibleEmployees,
+                        loading = loading,
+                        onConsult = onConsult,
                     )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(visibleEmployees, key = { it.idempleado }) { employee ->
+                            EmployeeAttendanceCard(
+                                employee = employee,
+                                onClick = { if (!loading) onConsult(employee.idempleado) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -237,6 +248,55 @@ fun AsistenciaScreen(
                 onApplyMarks(selectedEmployee.idempleado, record, entry, exit)
             },
         )
+    }
+}
+
+@Composable
+private fun AttendanceEmployeeTable(
+    employees: List<EmployeeDto>,
+    loading: Boolean,
+    onConsult: (Int) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 18.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Código", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Empleado", Modifier.weight(2.2f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Sucursal", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Acción", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            }
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(employees, key = { it.idempleado }) { employee ->
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(employee.codigo, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text("${employee.nombres} ${employee.apellidos}", Modifier.weight(2.2f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(employee.idagencia.toString(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Button(
+                                onClick = { onConsult(employee.idempleado) },
+                                enabled = !loading,
+                                modifier = Modifier.weight(1f).height(38.dp),
+                            ) {
+                                Icon(Lucide.Clock3, contentDescription = null, modifier = Modifier.size(17.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Ver marcas")
+                            }
+                        }
+                        androidx.compose.material3.HorizontalDivider()
+                    }
+                }
+            }
+        }
     }
 }
 

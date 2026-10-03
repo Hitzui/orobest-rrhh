@@ -3,6 +3,7 @@ package com.jomiro.app.orobest_rrhh.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -133,19 +134,32 @@ fun EmpleadosScreen(
         when {
             employees.isEmpty() && !refreshing -> EmptyEmployeesMessage("No hay empleados activos disponibles para esta sucursal.")
             visibleEmployees.isEmpty() && searchQuery.isNotBlank() -> EmptyEmployeesMessage("No encontramos empleados con esa búsqueda.")
-            else -> LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(visibleEmployees, key = { it.idempleado }) { employee ->
-                    EmployeeListCard(
-                        employee = employee,
-                        onMarkAttendance = { onMarkAttendance(employee.idempleado) },
+            else -> BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                if (maxWidth >= 800.dp) {
+                    EmployeeTable(
+                        employees = visibleEmployees,
+                        onMarkAttendance = { onMarkAttendance(it.idempleado) },
                         onRequestLeave = {
                             leaveError = null
-                            leaveEmployee = employee
+                            leaveEmployee = it
                         },
                     )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(visibleEmployees, key = { it.idempleado }) { employee ->
+                            EmployeeListCard(
+                                employee = employee,
+                                onMarkAttendance = { onMarkAttendance(employee.idempleado) },
+                                onRequestLeave = {
+                                    leaveError = null
+                                    leaveEmployee = employee
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -179,6 +193,58 @@ fun EmpleadosScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun EmployeeTable(
+    employees: List<EmployeeDto>,
+    onMarkAttendance: (EmployeeDto) -> Unit,
+    onRequestLeave: (EmployeeDto) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxSize(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 18.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Código", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Empleado", Modifier.weight(2.2f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Sucursal", Modifier.weight(0.8f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Estado", Modifier.weight(0.7f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text("Acciones", Modifier.weight(1.8f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            }
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(employees, key = { it.idempleado }) { employee ->
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(employee.codigo, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Text("${employee.nombres} ${employee.apellidos}", Modifier.weight(2.2f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(employee.idagencia.toString(), Modifier.weight(0.8f), style = MaterialTheme.typography.bodyMedium)
+                            Text("Activo", Modifier.weight(0.7f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Row(Modifier.weight(1.8f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onMarkAttendance(employee) }, modifier = Modifier.height(38.dp)) {
+                                    Icon(Lucide.ClipboardClock, contentDescription = null, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Asistencia")
+                                }
+                                OutlinedButton(onClick = { onRequestLeave(employee) }, modifier = Modifier.height(38.dp)) {
+                                    Text("Solicitar permiso")
+                                }
+                            }
+                        }
+                        androidx.compose.material3.HorizontalDivider()
+                    }
+                }
+            }
+        }
     }
 }
 
