@@ -9,7 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.composables.ui.theme.ComposablesTheme
+import com.jomiro.app.orobest_rrhh.di.appModule
 import com.jomiro.app.orobest_rrhh.navigation.AppNavigation
+import org.koin.compose.KoinApplication
+import org.koin.dsl.koinConfiguration
 
 private val OroBestColors = lightColorScheme(
     primary = Color(0xFF5143A5),
@@ -40,13 +43,15 @@ private val OroBestShapes = Shapes(
 
 @Composable
 fun App() {
-    ComposablesTheme {
-        MaterialTheme(
-            colorScheme = OroBestColors,
-            shapes = OroBestShapes,
-            typography = Typography(),
-        ) {
-            AppNavigation()
+    KoinApplication(configuration = koinConfiguration { modules(appModule) }) {
+        ComposablesTheme {
+            MaterialTheme(
+                colorScheme = OroBestColors,
+                shapes = OroBestShapes,
+                typography = Typography(),
+            ) {
+                AppNavigation()
+            }
         }
     }
 }

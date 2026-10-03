@@ -48,6 +48,7 @@ import com.jomiro.app.orobest_rrhh.network.AttendanceEventRequest
 import com.jomiro.app.orobest_rrhh.network.AttendanceOutbox
 import com.jomiro.app.orobest_rrhh.network.AttendanceSyncResult
 import com.jomiro.app.orobest_rrhh.network.RrhhApiClient
+import com.jomiro.app.orobest_rrhh.network.RrhhApiClientFactory
 import com.jomiro.app.orobest_rrhh.network.RrhhApiException
 import com.jomiro.app.orobest_rrhh.network.QueuedAttendanceEvent
 import com.jomiro.app.orobest_rrhh.network.defaultRrhhApiBaseUrl
@@ -56,6 +57,7 @@ import com.jomiro.app.orobest_rrhh.screens.AsistenciaScreen
 import com.jomiro.app.orobest_rrhh.screens.ConfiguracionScreen
 import com.jomiro.app.orobest_rrhh.screens.HomeScreen
 import com.jomiro.app.orobest_rrhh.screens.LoginScreen
+import org.koin.compose.koinInject
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -75,7 +77,8 @@ private val NavigationMuted = Color(0xFFB8AEF4)
 @OptIn(ExperimentalMaterial3Api::class)
 fun AppNavigation() {
     val scope = rememberCoroutineScope()
-    val attendanceOutbox = remember { AttendanceOutbox() }
+    val attendanceOutbox = koinInject<AttendanceOutbox>()
+    val apiClientFactory = koinInject<RrhhApiClientFactory>()
     var api by remember { mutableStateOf<RrhhApiClient?>(null) }
     var employees by remember { mutableStateOf<List<EmployeeDto>>(emptyList()) }
     var destination by remember { mutableStateOf(AppDestination.Home) }
@@ -114,13 +117,13 @@ fun AppNavigation() {
                     loginError = null
                     var candidate: RrhhApiClient? = null
                     try {
-                        val loginClient = RrhhApiClient(baseUrl, "")
+                        val loginClient = apiClientFactory.create(baseUrl, "")
                         candidate = loginClient
                         val loginResult = loginClient.login(username, password)
                         loginClient.close()
                         candidate = null
 
-                        val sessionApi = RrhhApiClient(baseUrl, loginResult.access_token)
+                        val sessionApi = apiClientFactory.create(baseUrl, loginResult.access_token)
                         candidate = sessionApi
                         val loadedEmployees = sessionApi.getEmployees()
                         api = sessionApi
