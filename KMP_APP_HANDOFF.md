@@ -9,6 +9,7 @@ Este documento permite continuar el trabajo de la app móvil en otro directorio 
 - Mantener la app como proyecto/repo independiente. La app consume la API HTTP del backend; no copiar clases PHP ni acceder directamente a MySQL desde Kotlin.
 - Si el nuevo chat se abre en la carpeta KMP, pedirle que lea este documento. La copia del backend está en `C:\xampp\htdocs\orobest\docs\KMP_APP_HANDOFF.md`; el backend se puede consultar bajo `C:\xampp\htdocs\orobest\...`.
 - El proyecto tiene targets Android, iOS y Desktop y usa Compose Multiplatform.
+- El branding del icono parte de `assets/branding/orobest-rrhh-icon.svg`; Desktop usa `.ico`, `.icns` y `.png` para MSI, DMG y DEB.
 
 ## Alcance inicial
 

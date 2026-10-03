@@ -21,8 +21,19 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.jomiro.app.orobest_rrhh"
+            packageName = "OroBest RRHH"
             packageVersion = "1.0.0"
+            description = "Gestión de personal y asistencia"
+            macOS {
+                iconFile.set(project.file("src/main/resources/icons/orobest-rrhh.icns"))
+                dockName = "OroBest RRHH"
+            }
+            windows {
+                iconFile.set(project.file("src/main/resources/icons/orobest-rrhh.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/main/resources/icons/orobest-rrhh.png"))
+            }
         }
     }
 }
