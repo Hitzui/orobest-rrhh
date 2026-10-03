@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,8 +47,14 @@ import com.jomiro.app.orobest_rrhh.screens.ConfiguracionScreen
 import com.jomiro.app.orobest_rrhh.screens.EmpleadosScreen
 import com.jomiro.app.orobest_rrhh.screens.HomeScreen
 import com.jomiro.app.orobest_rrhh.screens.LoginScreen
-import com.jomiro.app.orobest_rrhh.viewmodel.RrhhAppViewModel
+import com.jomiro.app.orobest_rrhh.session.RrhhSessionRepository
+import com.jomiro.app.orobest_rrhh.viewmodel.AttendanceViewModel
+import com.jomiro.app.orobest_rrhh.viewmodel.ConfiguracionViewModel
+import com.jomiro.app.orobest_rrhh.viewmodel.EmployeesViewModel
+import com.jomiro.app.orobest_rrhh.viewmodel.HomeViewModel
+import com.jomiro.app.orobest_rrhh.viewmodel.LoginViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
 
 private enum class AppDestination(val label: String) {
     Home("Inicio"),
@@ -63,17 +70,31 @@ private val NavigationMuted = Color(0xFFB8AEF4)
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun AppNavigation(
-    viewModel: RrhhAppViewModel = koinViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val sessionRepository = koinInject<RrhhSessionRepository>()
+    val session by sessionRepository.state.collectAsState()
+    val loginViewModel = koinViewModel<LoginViewModel>()
+    val loginState by loginViewModel.uiState.collectAsState()
+    val homeViewModel = koinViewModel<HomeViewModel>()
+    val homeState by homeViewModel.uiState.collectAsState()
+    val employeesViewModel = koinViewModel<EmployeesViewModel>()
+    val employeesState by employeesViewModel.uiState.collectAsState()
+    val attendanceViewModel = koinViewModel<AttendanceViewModel>()
+    val attendanceState by attendanceViewModel.uiState.collectAsState()
+    val configuracionViewModel = koinViewModel<ConfiguracionViewModel>()
+    val configuracionState by configuracionViewModel.uiState.collectAsState()
     var destination by remember { mutableStateOf(AppDestination.Home) }
 
-    if (!state.authenticated) {
+    LaunchedEffect(session.authenticated) {
+        if (!session.authenticated) destination = AppDestination.Home
+    }
+
+    if (!session.authenticated) {
         LoginScreen(
-            initialBaseUrl = state.apiBaseUrl,
-            loading = state.loading,
-            error = state.loginError,
-            onLogin = viewModel::login,
+            initialBaseUrl = session.apiBaseUrl,
+            loading = loginState.loading,
+            error = loginState.error,
+            onLogin = loginViewModel::login,
         )
         return
     }
@@ -119,43 +140,43 @@ fun AppNavigation(
         Column(Modifier.fillMaxSize().padding(contentPadding)) {
             when (destination) {
                 AppDestination.Home -> HomeScreen(
-                    employeeCount = state.employees.size,
+                    employeeCount = homeState.employeeCount,
                     onOpenEmployees = { destination = AppDestination.Empleados },
                     onOpenAttendance = { destination = AppDestination.Asistencia },
                 )
 
                 AppDestination.Empleados -> EmpleadosScreen(
-                    employees = state.employees,
-                    onRefresh = viewModel::refreshEmployees,
-                    refreshing = state.loading,
-                    error = state.employeesError,
+                    employees = employeesState.employees,
+                    onRefresh = employeesViewModel::refresh,
+                    refreshing = employeesState.refreshing,
+                    error = employeesState.error,
                     onMarkAttendance = { employeeId ->
                         destination = AppDestination.Asistencia
-                        viewModel.consultAttendance(employeeId)
+                        attendanceViewModel.consult(employeeId)
                     },
-                    onSubmitLeaveRequest = viewModel::submitLeaveRequest,
+                    onSubmitLeaveRequest = employeesViewModel::submitLeaveRequest,
                 )
 
                 AppDestination.Asistencia -> AsistenciaScreen(
-                    employees = state.employees,
-                    attendance = state.attendance,
-                    selectedEmployeeId = state.attendanceEmployeeId,
-                    loading = state.loading,
-                    error = state.attendanceError,
-                    queuedEvents = state.queuedAttendanceEvents,
-                    currentServer = state.apiBaseUrl,
-                    syncResult = state.attendanceSyncResult,
-                    syncing = state.syncingAttendance,
-                    onConsult = viewModel::consultAttendance,
-                    onSyncPending = viewModel::syncPendingAttendance,
-                    onDismissDialog = viewModel::dismissAttendance,
-                    onApplyMarks = viewModel::applyAttendance,
+                    employees = attendanceState.employees,
+                    attendance = attendanceState.attendance,
+                    selectedEmployeeId = attendanceState.selectedEmployeeId,
+                    loading = attendanceState.loading,
+                    error = attendanceState.error,
+                    queuedEvents = attendanceState.queuedEvents,
+                    currentServer = session.apiBaseUrl,
+                    syncResult = attendanceState.syncResult,
+                    syncing = attendanceState.syncing,
+                    onConsult = attendanceViewModel::consult,
+                    onSyncPending = attendanceViewModel::retrySync,
+                    onDismissDialog = attendanceViewModel::dismissDialog,
+                    onApplyMarks = attendanceViewModel::applyMarks,
                 )
 
                 AppDestination.Configuracion -> ConfiguracionScreen(
-                    username = state.signedInUsername,
-                    apiBaseUrl = state.apiBaseUrl,
-                    onLogout = viewModel::logout,
+                    username = configuracionState.username,
+                    apiBaseUrl = configuracionState.apiBaseUrl,
+                    onLogout = configuracionViewModel::logout,
                 )
             }
         }
