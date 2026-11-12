@@ -1,0 +1,11 @@
+U.are.U SDK for Windows — DigitalPersona, Inc. / Crossmatch Technologies, Inc.
+
+This application incorporates the U.are.U Java SDK runtime as licensed software.
+Copyright © Crossmatch Technologies, Inc. and its affiliates, including
+DigitalPersona, Inc. All rights reserved.
+
+Use and redistribution are subject to the U.are.U SDK End User License Agreement
+provided with the official SDK. Do not redistribute this application or its
+bundled SDK runtime unless the recipient and distribution comply with that
+license. The official SDK installation/runtime and reader driver may also be
+required on the target computer.

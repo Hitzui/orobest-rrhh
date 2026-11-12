@@ -19,3 +19,6 @@ captures
 node_modules/
 opencode.exe
 rrhh_token_*.txt
+
+# Licensed SDK/runtime for this workstation; never commit biometric assets.
+.local/

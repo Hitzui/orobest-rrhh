@@ -8,6 +8,18 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+val installedUareuSdkJar = "C:/Program Files/DigitalPersona/U.are.U SDK/Windows/Lib/Java/dpuareu.jar"
+val legacyUareuSdkJar = "C:/Huella/Windows/Lib/Java/dpuareu.jar"
+val localUareuSdkJar = rootProject.file(".local/uareu/dpuareu.jar").absolutePath
+val defaultUareuSdkJar = when {
+    file(localUareuSdkJar).isFile -> localUareuSdkJar
+    file(installedUareuSdkJar).isFile -> installedUareuSdkJar
+    else -> legacyUareuSdkJar
+}
+val uareuSdkJar = providers.gradleProperty("uareuSdkJar")
+    .orElse(providers.environmentVariable("UAREU_SDK_JAR"))
+    .orElse(defaultUareuSdkJar)
+
 kotlin {
     listOf(
         iosArm64(),
@@ -45,6 +57,7 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.play.services.code.scanner)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
         }
@@ -53,6 +66,7 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.cio)
+            implementation(files(uareuSdkJar.get()))
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

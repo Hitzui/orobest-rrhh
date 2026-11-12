@@ -94,6 +94,14 @@ POST /api/rrhh/asistencia
 - Un reintento idéntico es idempotente; no genera una segunda marca. Reutilizar un UUID con contenido distinto o intentar reemplazar una entrada/salida existente puede responder HTTP `409`; el evento conflictivo requiere revisión de RRHH y no sobrescribe la asistencia existente.
 - El servidor convierte la fecha/hora del evento a `America/Managua`, guarda el instante UTC y la hora de recepción. Rechaza eventos más de cinco minutos en el futuro.
 - Persistir los eventos pendientes hasta recibir confirmación inequívoca. No generar un UUID nuevo por reintento.
+
+### Identificación para marcación compartida
+
+- La pantalla de marcación acepta PIN numérico de seis dígitos o QR de tarjeta (Android). La API valida la credencial y devuelve el nombre/código y las marcas actuales; PIN y QR son alternativas, no se requieren juntos.
+- `POST /api/rrhh/credencial` recibe `{"pin":"123456"}` o `{"qr":"orobest-attendance:v1:<token>"}`. Se requiere la sesión Bearer de supervisor móvil; hay límite temporal de intentos.
+- El QR contiene un token aleatorio y no datos personales. RRHH/administra PIN y QR desde el expediente web de empleado; solo se muestran al generarlos y regenerar revoca ambos anteriores. El PIN no se imprime en la tarjeta.
+- Las marcas online envían `usar_hora_servidor:true`; la API fija el instante al recibir el evento. Las marcas en cola offline conservan el instante del dispositivo. Para marcar offline, primero se debe haber identificado al empleado mientras había conexión y mantener la app abierta.
+- Escaneo de tarjeta está implementado para Android mediante Google Code Scanner; el target iOS aún no tiene lector QR.
 - La app mantiene una cola durable local en Android SharedPreferences, iOS UserDefaults y Desktop Java Preferences. Cada marca guarda el servidor de origen, orden de captura y payload original; se elimina solo después de una respuesta exitosa. HTTP 4xx queda en revisión con el mensaje del servidor, 401 conserva la cola y una salida espera si la entrada del mismo día fue rechazada.
 
 ### Enviar solicitud de permiso/ausencia

@@ -19,12 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +45,10 @@ import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.UsersRound
 import com.jomiro.app.orobest_rrhh.network.EmployeeDto
 import com.jomiro.app.orobest_rrhh.network.LeaveRequest
+import com.jomiro.app.orobest_rrhh.biometric.FingerprintPlatform
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 
 @Composable
 fun EmpleadosScreen(
@@ -52,6 +58,10 @@ fun EmpleadosScreen(
     error: String?,
     onMarkAttendance: (employeeId: Int) -> Unit,
     onSubmitLeaveRequest: suspend (LeaveRequest) -> String,
+    onGetFingerprintEnrolledEmployeeIds: suspend () -> List<Int> = { emptyList() },
+    onSaveFingerprint: suspend (Int, String) -> String = { _, _ -> error("Gestión de huellas no habilitada.") },
+    onRevokeFingerprint: suspend (Int) -> String = { error("Gestión de huellas no habilitada.") },
+    canManageFingerprints: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
@@ -59,6 +69,41 @@ fun EmpleadosScreen(
     var submittingLeave by remember { mutableStateOf(false) }
     var leaveError by remember { mutableStateOf<String?>(null) }
     var leaveSuccess by remember { mutableStateOf<String?>(null) }
+    var fingerprintEmployee by remember { mutableStateOf<EmployeeDto?>(null) }
+    var fingerprintEnrolled by remember { mutableStateOf(false) }
+    var fingerprintConsent by remember { mutableStateOf(false) }
+    var fingerprintBusy by remember { mutableStateOf(false) }
+    var fingerprintPrompt by remember { mutableStateOf<String?>(null) }
+    var fingerprintError by remember { mutableStateOf<String?>(null) }
+    var confirmFingerprintRevoke by remember { mutableStateOf(false) }
+    var fingerprintJob by remember { mutableStateOf<Job?>(null) }
+    var fingerprintLoaded by remember { mutableStateOf(false) }
+    var fingerprintSaving by remember { mutableStateOf(false) }
+
+    fun manageFingerprint(employee: EmployeeDto) {
+        fingerprintJob?.cancel()
+        fingerprintEmployee = employee
+        fingerprintEnrolled = false
+        fingerprintConsent = false
+        fingerprintLoaded = false
+        fingerprintBusy = true
+        fingerprintError = null
+        fingerprintPrompt = "Consultando el estado de enrolamiento…"
+        fingerprintJob = scope.launch {
+            try {
+                fingerprintEnrolled = employee.idempleado in onGetFingerprintEnrolledEmployeeIds()
+                fingerprintLoaded = true
+                fingerprintPrompt = if (fingerprintEnrolled) "Huella enrolada." else "No hay una huella enrolada."
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                fingerprintError = error.message ?: "No se pudo consultar el estado de la huella."
+                fingerprintPrompt = null
+            } finally {
+                fingerprintBusy = false
+            }
+        }
+    }
     val visibleEmployees = employees.filter { employee ->
         val name = "${employee.nombres} ${employee.apellidos}"
         name.contains(searchQuery, ignoreCase = true) || employee.codigo.contains(searchQuery, ignoreCase = true)
@@ -139,6 +184,7 @@ fun EmpleadosScreen(
                     EmployeeTable(
                         employees = visibleEmployees,
                         onMarkAttendance = { onMarkAttendance(it.idempleado) },
+                        onManageFingerprint = if (FingerprintPlatform.isAvailable && canManageFingerprints) ::manageFingerprint else null,
                         onRequestLeave = {
                             leaveError = null
                             leaveEmployee = it
@@ -153,6 +199,9 @@ fun EmpleadosScreen(
                             EmployeeListCard(
                                 employee = employee,
                                 onMarkAttendance = { onMarkAttendance(employee.idempleado) },
+                                onManageFingerprint = if (FingerprintPlatform.isAvailable && canManageFingerprints) {
+                                    { manageFingerprint(employee) }
+                                } else null,
                                 onRequestLeave = {
                                     leaveError = null
                                     leaveEmployee = employee
@@ -194,12 +243,95 @@ fun EmpleadosScreen(
             },
         )
     }
+
+    fingerprintEmployee?.let { employee ->
+        AlertDialog(
+            onDismissRequest = { if (!fingerprintBusy) fingerprintEmployee = null },
+            title = { Text("Huella · ${employee.nombres} ${employee.apellidos}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    fingerprintPrompt?.let { Text(it) }
+                    fingerprintError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (!fingerprintEnrolled) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = fingerprintConsent, onCheckedChange = { fingerprintConsent = it }, enabled = !fingerprintBusy)
+                            Text("El empleado dio su consentimiento informado para el uso de su huella en control de asistencia.")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (fingerprintEnrolled) {
+                    TextButton(onClick = { confirmFingerprintRevoke = true }, enabled = !fingerprintBusy) { Text("Revocar huella") }
+                } else {
+                    TextButton(
+                        enabled = fingerprintLoaded && fingerprintConsent && !fingerprintBusy,
+                        onClick = {
+                            fingerprintJob = scope.launch {
+                                fingerprintBusy = true
+                                fingerprintError = null
+                                try {
+                                    val fmd = FingerprintPlatform.enroll { fingerprintPrompt = it }
+                                    fingerprintSaving = true
+                                    fingerprintPrompt = "Guardando plantilla cifrada…"
+                                    onSaveFingerprint(employee.idempleado, fmd)
+                                    fingerprintEnrolled = true
+                                    fingerprintPrompt = "Huella enrolada correctamente."
+                                } catch (cancelled: CancellationException) {
+                                    fingerprintPrompt = "Captura cancelada. Puede volver a intentar."
+                                    throw cancelled
+                                } catch (error: Throwable) {
+                                    fingerprintError = FingerprintPlatform.reportFailure(error)
+                                } finally {
+                                    fingerprintSaving = false
+                                    fingerprintBusy = false
+                                }
+                            }
+                        },
+                    ) { Text(if (fingerprintBusy) "Procesando…" else "Capturar y enrolar") }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { if (fingerprintBusy) fingerprintJob?.cancel() else fingerprintEmployee = null },
+                    enabled = !fingerprintSaving,
+                ) { Text(if (fingerprintBusy) "Cancelar captura" else "Cerrar") }
+            },
+        )
+        if (confirmFingerprintRevoke) {
+            AlertDialog(
+                onDismissRequest = { confirmFingerprintRevoke = false },
+                title = { Text("¿Revocar la huella?") },
+                text = { Text("Se eliminará la plantilla biométrica del servidor y dejará de funcionar para identificar al empleado.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        scope.launch {
+                            fingerprintBusy = true
+                            fingerprintError = null
+                            try {
+                                onRevokeFingerprint(employee.idempleado)
+                                fingerprintEnrolled = false
+                                fingerprintPrompt = "Huella revocada y eliminada."
+                                confirmFingerprintRevoke = false
+                            } catch (error: Throwable) {
+                                fingerprintError = error.message ?: "No se pudo revocar la huella."
+                            } finally {
+                                fingerprintBusy = false
+                            }
+                        }
+                    }) { Text("Revocar") }
+                },
+                dismissButton = { TextButton(onClick = { confirmFingerprintRevoke = false }) { Text("Cancelar") } },
+            )
+        }
+    }
 }
 
 @Composable
 private fun EmployeeTable(
     employees: List<EmployeeDto>,
     onMarkAttendance: (EmployeeDto) -> Unit,
+    onManageFingerprint: ((EmployeeDto) -> Unit)?,
     onRequestLeave: (EmployeeDto) -> Unit,
 ) {
     Card(
@@ -238,6 +370,9 @@ private fun EmployeeTable(
                                 OutlinedButton(onClick = { onRequestLeave(employee) }, modifier = Modifier.height(38.dp)) {
                                     Text("Solicitar permiso")
                                 }
+                                onManageFingerprint?.let { manage ->
+                                    OutlinedButton(onClick = { manage(employee) }, modifier = Modifier.height(38.dp)) { Text("Huella") }
+                                }
                             }
                         }
                         androidx.compose.material3.HorizontalDivider()
@@ -252,6 +387,7 @@ private fun EmployeeTable(
 private fun EmployeeListCard(
     employee: EmployeeDto,
     onMarkAttendance: () -> Unit,
+    onManageFingerprint: (() -> Unit)?,
     onRequestLeave: () -> Unit,
 ) {
     val initials = "${employee.nombres.firstOrNull()?.uppercase().orEmpty()}${employee.apellidos.firstOrNull()?.uppercase().orEmpty()}"
@@ -301,6 +437,9 @@ private fun EmployeeListCard(
                     OutlinedButton(onClick = onRequestLeave, modifier = Modifier.weight(1f).height(44.dp)) {
                         Text("Solicitar permiso")
                     }
+                }
+                onManageFingerprint?.let { manage ->
+                    OutlinedButton(onClick = manage, modifier = Modifier.fillMaxWidth().height(40.dp)) { Text("Gestionar huella") }
                 }
             }
     }

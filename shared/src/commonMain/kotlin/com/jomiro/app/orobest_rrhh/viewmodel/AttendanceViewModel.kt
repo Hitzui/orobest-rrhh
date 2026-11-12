@@ -10,7 +10,10 @@ import com.jomiro.app.orobest_rrhh.network.EmployeeDto
 import com.jomiro.app.orobest_rrhh.network.QueuedAttendanceEvent
 import com.jomiro.app.orobest_rrhh.network.RrhhApiException
 import com.jomiro.app.orobest_rrhh.session.RrhhSessionRepository
+import com.jomiro.app.orobest_rrhh.biometric.FingerprintPlatform
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +30,7 @@ data class AttendanceUiState(
     val selectedEmployeeId: Int? = null,
     val loading: Boolean = false,
     val error: String? = null,
+    val fingerprintPrompt: String? = null,
     val queuedEvents: List<QueuedAttendanceEvent> = emptyList(),
     val syncResult: AttendanceSyncResult? = null,
     val syncing: Boolean = false,
@@ -38,11 +42,13 @@ class AttendanceViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AttendanceUiState())
     val uiState: StateFlow<AttendanceUiState> = _uiState.asStateFlow()
+    private var fingerprintJob: Job? = null
 
     init {
         viewModelScope.launch { refreshQueuedEvents() }
         viewModelScope.launch {
             sessionRepository.state.collect { session ->
+                if (!session.authenticated) cancelFingerprint()
                 _uiState.update {
                     it.copy(
                         employees = session.employees,
@@ -95,6 +101,105 @@ class AttendanceViewModel(
                 }
             } finally {
                 _uiState.update { it.copy(loading = false) }
+            }
+        }
+    }
+
+    fun identifyEmployee(pin: String? = null, qr: String? = null) {
+        if (pin.isNullOrBlank() && qr.isNullOrBlank()) {
+            _uiState.update { it.copy(attendance = null, selectedEmployeeId = null, error = null) }
+            return
+        }
+        val api = sessionRepository.apiOrNull() ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(loading = true, error = null, attendance = null, selectedEmployeeId = null) }
+            try {
+                val record = api.identifyAttendanceEmployee(pin, qr)
+                setAttendanceWithLocalEvents(record)
+                _uiState.update { it.copy(selectedEmployeeId = record.idempleado) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                _uiState.update { it.copy(error = error.toApiMessage()) }
+            } finally {
+                _uiState.update { it.copy(loading = false) }
+            }
+        }
+    }
+
+    fun identifyFingerprint() {
+        if (_uiState.value.loading || fingerprintJob?.isActive == true) return
+        val api = sessionRepository.apiOrNull() ?: return
+        fingerprintJob = viewModelScope.launch {
+            _uiState.update { it.copy(loading = true, error = null, fingerprintPrompt = "Descargando plantillas autorizadas…", attendance = null, selectedEmployeeId = null) }
+            try {
+                val templates = api.getFingerprintTemplates()
+                val employeeId = FingerprintPlatform.identify(templates) { prompt ->
+                    _uiState.update { it.copy(fingerprintPrompt = prompt) }
+                } ?: throw IllegalStateException("No se reconoció la huella. Intente otra vez o use PIN/QR.")
+                ensureActive()
+                if (sessionRepository.apiOrNull() !== api) throw CancellationException("La sesión cambió.")
+                val record = api.getAttendance(employeeId)
+                ensureActive()
+                setAttendanceWithLocalEvents(record)
+                _uiState.update { it.copy(selectedEmployeeId = record.idempleado, error = null, fingerprintPrompt = null) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                _uiState.update { it.copy(error = FingerprintPlatform.reportFailure(error), fingerprintPrompt = null) }
+            } finally {
+                _uiState.update { it.copy(loading = false, fingerprintPrompt = null) }
+            }
+        }
+    }
+
+    fun cancelFingerprint() {
+        fingerprintJob?.cancel()
+    }
+
+    fun clearKioskEmployee() {
+        if (!_uiState.value.loading) _uiState.update { it.copy(attendance = null, selectedEmployeeId = null, error = null) }
+    }
+
+    fun markKiosk(type: String) {
+        val api = sessionRepository.apiOrNull() ?: return
+        val record = _uiState.value.attendance ?: return
+        if (type !in listOf("entrada", "salida")) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(loading = true, error = null) }
+            try {
+                val current = try {
+                    api.getAttendance(record.idempleado)
+                } catch (error: RrhhApiException) {
+                    throw error
+                } catch (_: Throwable) {
+                    record
+                }
+                if (type == "entrada" && current.hora_entrada != null) throw IllegalStateException("La entrada ya está registrada.")
+                if (type == "salida" && current.hora_entrada == null) throw IllegalStateException("Primero debe registrarse la entrada.")
+                if (type == "salida" && current.hora_salida != null) throw IllegalStateException("La salida ya está registrada.")
+
+                val online = try {
+                    api.getAttendance(current.idempleado)
+                    true
+                } catch (error: RrhhApiException) {
+                    throw error
+                } catch (_: Throwable) {
+                    false
+                }
+                val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.of("America/Managua"))
+                val time = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
+                val request = attendanceRequest(current.idempleado, current.fecha, type, time, useServerTime = online)
+                attendanceOutbox.enqueue(sessionRepository.state.value.apiBaseUrl, request)
+                _uiState.update { it.copy(attendance = current.withLocalTimes(if (type == "entrada") time else null, if (type == "salida") time else null)) }
+                synchronizePendingEvents()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                _uiState.update { it.copy(error = error.toApiMessage()) }
+                refreshQueuedEvents()
+            } finally {
+                _uiState.update { it.copy(loading = false, syncing = false) }
             }
         }
     }
@@ -191,12 +296,13 @@ private fun EmployeeDto.toTodayAttendance() = AttendanceDto(
     registrada = false,
 )
 
-private fun attendanceRequest(employeeId: Int, date: String, type: String, time: String) =
+private fun attendanceRequest(employeeId: Int, date: String, type: String, time: String, useServerTime: Boolean = false) =
     AttendanceEventRequest(
         evento_id = kotlin.uuid.Uuid.random().toString(),
         id = employeeId,
         tipo = type,
         ocurrido_en = "${date}T${time}:00-06:00",
+        usar_hora_servidor = useServerTime,
     )
 
 private fun AttendanceDto.withLocalTimes(entryTime: String?, exitTime: String?) = copy(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jomiro.app.orobest_rrhh.network.EmployeeDto
 import com.jomiro.app.orobest_rrhh.network.LeaveRequest
 import com.jomiro.app.orobest_rrhh.network.RrhhApiException
+import com.jomiro.app.orobest_rrhh.network.SaveFingerprintRequest
 import com.jomiro.app.orobest_rrhh.session.RrhhSessionRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,16 @@ class EmployeesViewModel(
 
     suspend fun submitLeaveRequest(request: LeaveRequest): String =
         sessionRepository.submitLeaveRequest(request)
+
+    suspend fun getFingerprintEnrolledEmployeeIds(): List<Int> = sessionRepository.getFingerprintEnrolledEmployeeIds()
+
+    suspend fun saveFingerprint(employeeId: Int, fmd: String): String =
+        sessionRepository.saveFingerprint(
+            employeeId,
+            SaveFingerprintRequest(consentimiento = true, formato = "ANSI_378_2004", fmd = fmd),
+        )
+
+    suspend fun revokeFingerprint(employeeId: Int): String = sessionRepository.revokeFingerprint(employeeId)
 }
 
 private fun Throwable.toApiMessage(): String = when (this) {

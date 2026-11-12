@@ -1,9 +1,11 @@
 package com.jomiro.app.orobest_rrhh.session
 
 import com.jomiro.app.orobest_rrhh.network.EmployeeDto
+import com.jomiro.app.orobest_rrhh.network.FingerprintTemplateDto
 import com.jomiro.app.orobest_rrhh.network.LeaveRequest
 import com.jomiro.app.orobest_rrhh.network.RrhhApiClient
 import com.jomiro.app.orobest_rrhh.network.RrhhApiClientFactory
+import com.jomiro.app.orobest_rrhh.network.SaveFingerprintRequest
 import com.jomiro.app.orobest_rrhh.network.defaultRrhhApiBaseUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +16,7 @@ data class RrhhSessionState(
     val authenticated: Boolean = false,
     val apiBaseUrl: String = defaultRrhhApiBaseUrl(),
     val username: String = "",
+    val canManageFingerprints: Boolean = false,
     val employees: List<EmployeeDto> = emptyList(),
 )
 
@@ -44,6 +47,7 @@ class RrhhSessionRepository(
                     authenticated = true,
                     apiBaseUrl = baseUrl,
                     username = loginResult.usuario.username,
+                    canManageFingerprints = loginResult.usuario.puede_gestionar_huellas,
                     employees = employees,
                 )
             }
@@ -67,6 +71,18 @@ class RrhhSessionRepository(
         return api.submitLeaveRequest(request)
     }
 
+    suspend fun getFingerprintTemplates(): List<FingerprintTemplateDto> =
+        (activeApi ?: throw IllegalStateException("Inicia sesión para consultar huellas.")).getFingerprintTemplates()
+
+    suspend fun getFingerprintEnrolledEmployeeIds(): List<Int> =
+        (activeApi ?: throw IllegalStateException("Inicia sesión para consultar huellas.")).getFingerprintEnrolledEmployeeIds()
+
+    suspend fun saveFingerprint(employeeId: Int, request: SaveFingerprintRequest): String =
+        (activeApi ?: throw IllegalStateException("Inicia sesión para enrolar huellas.")).saveFingerprint(employeeId, request)
+
+    suspend fun revokeFingerprint(employeeId: Int): String =
+        (activeApi ?: throw IllegalStateException("Inicia sesión para revocar huellas.")).revokeFingerprint(employeeId)
+
     suspend fun logout() {
         val api = activeApi
         activeApi = null
@@ -78,6 +94,7 @@ class RrhhSessionRepository(
                 it.copy(
                     authenticated = false,
                     username = "",
+                    canManageFingerprints = false,
                     employees = emptyList(),
                 )
             }

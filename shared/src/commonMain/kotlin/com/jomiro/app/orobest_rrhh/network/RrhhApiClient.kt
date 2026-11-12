@@ -7,6 +7,8 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.delete
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -49,6 +51,40 @@ class RrhhApiClient(
             if (!date.isNullOrBlank()) parameter("fecha", date)
         }
         return response.readData()
+    }
+
+    suspend fun identifyAttendanceEmployee(pin: String? = null, qr: String? = null): AttendanceDto {
+        val response = client.post("$baseUrl/credencial") {
+            authorized()
+            contentType(ContentType.Application.Json)
+            setBody(AttendanceIdentityRequest(pin = pin, qr = qr))
+        }
+        return response.readData()
+    }
+
+    suspend fun getFingerprintTemplates(): List<FingerprintTemplateDto> =
+        client.get("$baseUrl/huellas") { authorized() }.readData()
+
+    suspend fun getFingerprintEnrolledEmployeeIds(): List<Int> =
+        client.get("$baseUrl/huellas") {
+            authorized()
+            parameter("estado", 1)
+        }.readData()
+
+    suspend fun saveFingerprint(employeeId: Int, request: SaveFingerprintRequest): String {
+        val response = client.put("$baseUrl/huella?id=$employeeId") {
+            authorized()
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        return response.readMessage()
+    }
+
+    suspend fun revokeFingerprint(employeeId: Int): String {
+        val response = client.delete("$baseUrl/huella?id=$employeeId") {
+            authorized()
+        }
+        return response.readMessage()
     }
 
     suspend fun recordAttendance(request: AttendanceEventRequest): String {

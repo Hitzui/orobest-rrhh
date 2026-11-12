@@ -43,6 +43,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.UsersRound
 import com.jomiro.app.orobest_rrhh.screens.AsistenciaScreen
+import com.jomiro.app.orobest_rrhh.screens.AttendanceKioskScreen
 import com.jomiro.app.orobest_rrhh.screens.ConfiguracionScreen
 import com.jomiro.app.orobest_rrhh.screens.EmpleadosScreen
 import com.jomiro.app.orobest_rrhh.screens.HomeScreen
@@ -152,25 +153,28 @@ fun AppNavigation(
                     error = employeesState.error,
                     onMarkAttendance = { employeeId ->
                         destination = AppDestination.Asistencia
-                        attendanceViewModel.consult(employeeId)
+                        attendanceViewModel.clearKioskEmployee()
                     },
                     onSubmitLeaveRequest = employeesViewModel::submitLeaveRequest,
+                    onGetFingerprintEnrolledEmployeeIds = employeesViewModel::getFingerprintEnrolledEmployeeIds,
+                    onSaveFingerprint = employeesViewModel::saveFingerprint,
+                    onRevokeFingerprint = employeesViewModel::revokeFingerprint,
+                    canManageFingerprints = session.canManageFingerprints,
                 )
 
-                AppDestination.Asistencia -> AsistenciaScreen(
-                    employees = attendanceState.employees,
+                AppDestination.Asistencia -> AttendanceKioskScreen(
                     attendance = attendanceState.attendance,
-                    selectedEmployeeId = attendanceState.selectedEmployeeId,
                     loading = attendanceState.loading,
                     error = attendanceState.error,
-                    queuedEvents = attendanceState.queuedEvents,
-                    currentServer = session.apiBaseUrl,
-                    syncResult = attendanceState.syncResult,
-                    syncing = attendanceState.syncing,
-                    onConsult = attendanceViewModel::consult,
-                    onSyncPending = attendanceViewModel::retrySync,
-                    onDismissDialog = attendanceViewModel::dismissDialog,
-                    onApplyMarks = attendanceViewModel::applyMarks,
+                    fingerprintPrompt = attendanceState.fingerprintPrompt,
+                    queuedCount = attendanceState.queuedEvents.count { it.server.trimEnd('/') == session.apiBaseUrl.trimEnd('/') && it.status == com.jomiro.app.orobest_rrhh.network.QueuedAttendanceEvent.STATUS_QUEUED },
+                    onIdentifyPin = { attendanceViewModel.identifyEmployee(pin = it.takeIf(String::isNotBlank)) },
+                    onIdentifyQr = { attendanceViewModel.identifyEmployee(qr = it) },
+                    onIdentifyFingerprint = if (com.jomiro.app.orobest_rrhh.biometric.FingerprintPlatform.isAvailable) attendanceViewModel::identifyFingerprint else null,
+                    onCancelFingerprint = attendanceViewModel::cancelFingerprint,
+                    onMark = attendanceViewModel::markKiosk,
+                    onSync = attendanceViewModel::retrySync,
+                    onReset = attendanceViewModel::clearKioskEmployee,
                 )
 
                 AppDestination.Configuracion -> ConfiguracionScreen(

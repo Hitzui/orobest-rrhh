@@ -26,6 +26,7 @@ data class LoginResponse(
 data class LoginUserDto(
     val username: String,
     val nombre: String? = null,
+    val puede_gestionar_huellas: Boolean = false,
 )
 
 @Serializable
@@ -51,11 +52,32 @@ data class AttendanceDto(
 )
 
 @Serializable
+data class FingerprintTemplateDto(
+    val idempleado: Int,
+    val formato: String,
+    val fmd: String,
+)
+
+@Serializable
+data class SaveFingerprintRequest(
+    val consentimiento: Boolean,
+    val formato: String,
+    val fmd: String,
+)
+
+@Serializable
 data class AttendanceEventRequest(
     val evento_id: String,
     val id: Int,
     val tipo: String,
     val ocurrido_en: String,
+    val usar_hora_servidor: Boolean = false,
+)
+
+@Serializable
+data class AttendanceIdentityRequest(
+    val pin: String? = null,
+    val qr: String? = null,
 )
 
 @Serializable

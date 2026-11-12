@@ -11,22 +11,24 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import javax.imageio.ImageIO
 
-fun main() = application {
-    val appIcon = remember {
-        val image = requireNotNull(object {}.javaClass.getResourceAsStream("/icons/orobest-rrhh.png"))
-            .use { ImageIO.read(it) }
-        BitmapPainter(image.toComposeImageBitmap())
-    }
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "OroBest RRHH",
-        icon = appIcon,
-        state = WindowState(
-            WindowPlacement.Maximized,
-            isMinimized = false,
-            position = WindowPosition.Aligned(Alignment.Center)
-        ),
-    ) {
-        App()
+fun main() {
+    application {
+        val appIcon = remember {
+            val image = requireNotNull(object {}.javaClass.getResourceAsStream("/icons/orobest-rrhh.png"))
+                .use { ImageIO.read(it) }
+            BitmapPainter(image.toComposeImageBitmap())
+        }
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "OroBest RRHH",
+            icon = appIcon,
+            state = WindowState(
+                WindowPlacement.Maximized,
+                isMinimized = false,
+                position = WindowPosition.Aligned(Alignment.Center)
+            ),
+        ) {
+            App()
+        }
     }
 }
